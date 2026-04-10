@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morse Master - Multi-Language Edition</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        /* DİL DEĞİŞTİRME BUTONU */
+        #lang-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: #222;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+        #lang-toggle:hover { background: #00ff00; color: #000; }
+
+        /* GÖREV KUTUSU */
+        #task-area {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #222;
+            border: 2px dashed #00ff00;
+            padding: 15px 40px;
+            text-align: center;
+            border-radius: 10px;
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+        #target-word { font-size: 2.2rem; letter-spacing: 5px; color: #fff; text-transform: uppercase; }
+        #task-status { font-size: 0.9rem; margin-top: 5px; color: #888; }
+
+        /* ARAYÜZ BÖLMELERİ */
+        #alphabet-guide { width: 320px; height: 85vh; border: 2px solid #333; padding: 15px; background: #222; border-radius: 10px; display: flex; flex-direction: column; margin-top: 60px; }
+        #input-zone { text-align: center; flex-grow: 1; margin-top: 60px; }
+        #output-zone { width: 350px; height: 80vh; display: flex; flex-direction: column; gap: 15px; padding: 20px; margin-top: 60px; }
+
+        /* TELGRAF BUTONU */
+        #telegraph-btn {
+            width: 150px; height: 150px; border-radius: 50%; background-color: #444; border: 8px solid #555;
+            cursor: pointer; outline: none; transition: all 0.1s; box-shadow: 0 10px #111;
+        }
+        #telegraph-btn:active { background-color: #00ff00; transform: translateY(6px); box-shadow: 0 4px #111; }
+
+        /* YAZI ALANI VE İMLEÇ */
+        #result-container { flex-grow: 1; background: #000; border: 2px solid #00ff00; padding: 15px; font-size: 1.5rem; word-wrap: break-word; overflow-y: auto; border-radius: 5px; }
+        #cursor { display: inline-block; width: 8px; height: 1.4rem; background-color: #00ff00; margin-left: 2px; animation: blink 1s step-end infinite; }
+        @keyframes blink { from, to { background-color: transparent; } 50% { background-color: #00ff00; } }
+
+        .guide-header { text-align: center; background: #333; margin: 5px 0; padding: 2px; font-size: 0.8rem; color: #fff; }
+        .guide-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 2px 0; font-size: 0.85rem; }
+        #columns-container, #numbers-container { display: flex; justify-content: space-between; gap: 10px; }
+        .guide-column { flex: 1; display: flex; flex-direction: column; }
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        button.tool-btn { background: #222; color: #00ff00; border: 1px solid #00ff00; padding: 12px; font-weight: bold; cursor: pointer; border-radius: 5px; }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; overflow-y: auto; height: auto; padding: 100px 10px 20px 10px; gap: 20px; }
+            #alphabet-guide { width: 95%; height: auto; order: 1; }
+            #input-zone { width: 100%; order: 2; }
+            #output-zone { width: 95%; height: 250px; order: 3; }
+            #lang-toggle { top: 10px; right: 10px; padding: 5px 10px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <button id="lang-toggle" onclick="toggleLanguage()">TR / EN</button>
+
+    <div id="task-area">
+        <div id="task-status">YOUR TASK:</div>
+        <div id="target-word">LOADING...</div>
+    </div>
+
+    <div id="alphabet-guide">
+        <h3 id="guide-title" style="text-align: center; margin: 0 0 10px 0;">MORSE GUIDE</h3>
+        <div class="guide-header" id="header-letters">LETTERS</div>
+        <div id="columns-container"><div id="col-left" class="guide-column"></div><div id="col-right" class="guide-column"></div></div>
+        <div class="guide-header" id="header-numbers">NUMBERS</div>
+        <div id="numbers-container"><div id="num-left" class="guide-column"></div><div id="num-right" class="guide-column"></div></div>
+    </div>
+
+    <div id="input-zone">
+        <div id="current-signal" style="height: 40px; font-size: 2rem;"></div>
+        <button id="telegraph-btn"></button>
+    </div>
+
+    <div id="output-zone">
+        <div id="result-container">
+            <span id="result-text"></span><span id="cursor"></span>
+        </div>
+        <div class="controls">
+            <button class="tool-btn" id="btn-space" style="background: #004400; color: white;" onclick="addSpace()">SPACE</button>
+            <div style="display:flex; gap:10px;">
+                <button class="tool-btn" id="btn-backspace" style="flex:1" onclick="backspace()">BACKSPACE</button>
+                <button class="tool-btn" id="btn-clear" style="flex:1" onclick="clearAll()">CLEAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const letters = { "A": ".-", "B": "-...", "C": "-.-.", "D": "-..", "E": ".", "F": "..-.", "G": "--.", "H": "....", "I": "..", "J": ".---", "K": "-.-", "L": ".-..", "M": "--", "N": "-.", "O": "---", "P": ".--.", "Q": "--.-", "R": ".-.", "S": "...", "T": "-", "U": "..-", "V": "...-", "W": ".--", "X": "-..-", "Y": "-.--", "Z": "--.." };
+        const numbers = { "0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-", "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----." };
+        
+        const data = {
+            en: {
+                status: "YOUR TASK:",
+                win: "CORRECT! NEXT:",
+                guide: "MORSE GUIDE",
+                letters: "LETTERS",
+                numbers: "NUMBERS",
+                space: "SPACE",
+                back: "BACKSPACE",
+                clear: "CLEAR",
+                words: ["TIME", "YEAR", "PEOPLE", "WAY", "DAY", "MAN", "THING", "WOMAN", "LIFE", "CHILD", "WORLD", "SCHOOL", "STATE", "FAMILY", "STUDENT", "GROUP", "COUNTRY", "PROBLEM", "HAND", "PART", "PLACE", "CASE", "WEEK", "COMPANY", "SYSTEM", "PROGRAM", "QUESTION", "WORK", "NUMBER", "NIGHT", "MR", "HOME", "WATER", "ROOM", "MOTHER", "AREA", "MONEY", "STORY", "FACT", "MONTH", "LOT", "RIGHT", "STUDY", "BOOK", "EYE", "JOB", "WORD", "BUSINESS", "ISSUE", "SIDE", "KIND", "HEAD", "HOUSE", "SERVICE", "FRIEND", "FATHER", "POWER", "HOUR", "GAME", "LINE", "END", "MEMBER", "LAW", "CAR", "CITY", "COMMUNITY", "NAME", "FIVE", "ONCE", "WHITE", "LEAST", "PRESIDENT", "TEAM", "MINUTE", "IDEA", "KID", "BODY", "INFORMATION", "BACK", "PARENT", "FACE", "OTHERS", "LEVEL", "OFFICE", "DOOR", "HEALTH", "PERSON", "ART", "WAR", "HISTORY", "PARTY", "RESULT", "CHANGE", "MORNING", "REASON", "RESEARCH", "GIRL", "GUY", "MOM", "AIR", "TEACHER", "FORCE", "EDUCATION", "ACTION", "HEALTH", "MODEL", "MARKET", "PLAN", "EXPERIENCE", "LIGHT", "VIDEO", "STREET", "NATURE", "COFFEE", "BREAD", "PAPER", "FIRE", "EARTH", "COAST", "VALLEY", "MOUNTAIN", "PLANT", "CLOUD", "WIND", "RAIN", "SNOW", "SOUND", "VOICE", "IMAGE", "SPACE", "OFFICE", "STUDIO", "PHONE", "RADIO", "PLANE", "TRAIN", "BOAT", "GREEN", "BLACK", "RED", "BLUE", "YELLOW", "CIRCLE", "SQUARE", "HEART", "DREAM", "FAITH", "SMILE", "PEACE", "TRUTH", "ORDER", "SIMPLE", "MODERN", "SMART", "READY", "ACTIVE", "LOCAL", "GLOBAL", "TOTAL", "BASIC", "STRONG", "SOFT", "QUICK", "SLOW", "BRIGHT", "DARK", "HAPPY", "LUCKY", "BRAVE", "FAMOUS", "SILENT", "LOUD", "SWEET", "BITTER", "COLD", "HOT", "YOUNG", "OLD", "FIRST", "SECOND", "THIRD", "EVERY", "OTHER", "SMALL", "LARGE", "BETTER", "GREAT", "CLEAN", "DIRTY", "ROUND", "FLAT", "STILL", "ALMOST", "ENOUGH", "TOGETHER", "AROUND", "ACROSS", "THROUGH", "BETWEEN", "UNDER", "ABOVE", "BEFORE", "AFTER", "DURING", "SINCE", "UNTIL", "WHILE", "LATER", "SOON", "NEVER", "ALWAYS", "OFTEN", "SOMETIMES", "PERHAPS", "ACTUALLY", "ALREADY", "MAYBE", "QUIET", "QUITE", "REALLY", "ONLY", "VERY", "MUCH", "WELL", "SOON", "JUST", "EVEN", "AGAIN", "NEAR", "FAR", "AWAY", "OUTSIDE", "INSIDE", "PUBLIC", "PRIVATE", "SINGLE", "DOUBLE", "CLOSE", "OPEN", "START", "FINISH", "PLAY", "STOP", "MOVE", "HOLD", "TURN", "LIVE", "DIE", "SLEEP", "EAT", "DRINK", "READ", "WRITE", "SPEAK", "HEAR", "WATCH", "WAIT", "HELP", "TRY", "ASK", "SHOW", "FEEL", "KNOW", "MEAN", "KEEP", "LEAVE", "LET", "BEGIN", "SEEM", "HELP", "TALK", "TURN", "START", "MIGHT", "SHOULD", "MUST", "COULD", "THINK", "BRING", "WRITE", "TAKE", "TELL", "GIVE", "FIND", "COME", "LOOK", "WANT", "HAVE", "SAY", "GET", "MAKE", "KNOW", "TAKE", "SEE", "LOOK", "WANT", "GIVE", "USE", "FIND", "TELL", "ASK", "WORK", "SEEM", "FEEL", "TRY", "LEAVE", "CALL", "WORLD", "LIFE", "CHILD", "FAMILY", "SYSTEM", "GOVT", "HEALTH", "RIGHT", "POWER", "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND", "MONEY", "BUSINESS", "FACT", "CASE", "STORY", "BOOK", "PAPER", "NAME", "SIDE", "AREA", "GROUP", "PARTY", "TEAM", "IDEA", "BODY", "MIND", "HAND", "FACE", "EYE", "HEAD", "FOOT", "LEG", "HEART", "BLOOD", "BONE", "SKIN", "SMILE", "LAUGH", "TEARS", "SOUND", "VOICE", "LIGHT", "COLOR", "GREEN", "BLUE", "RED", "YELLOW", "WHITE", "BLACK", "GRAY", "SIZE", "WEIGHT", "SHAPE", "FORM", "SQUARE", "CIRCLE", "POINT", "LINE", "SIDE", "NORTH", "SOUTH", "EAST", "WEST", "LEFT", "RIGHT", "UP", "DOWN", "FRONT", "BACK", "MIDDLE", "CENTER", "SPACE", "PLACE", "SPOT", "ROAD", "STREET", "PATH", "BRIDGE", "TOWN", "CITY", "STATE", "REGION", "LAND", "EARTH", "FIRE", "WATER", "WIND", "AIR", "RAIN", "SNOW", "ICE", "SUN", "MOON", "STAR", "SKY", "SEA", "OCEAN", "RIVER", "LAKE", "ROCK", "SAND", "DUST", "WOOD", "METAL", "GOLD", "IRON", "OIL", "COAL", "GAS", "TREE", "FLOWER", "GRASS", "BIRD", "FISH", "DOG", "CAT", "HORSE", "COW", "FOOD", "MEAT", "FRUIT", "SEED", "WHEAT", "SUGAR", "SALT", "WINE", "BEER", "JUICE", "GLASS", "CUP", "PLATE", "FORK", "KNIFE", "SPOON", "BOWL", "TABLE", "CHAIR", "BED", "ROOM", "HOUSE", "WALL", "ROOF", "WINDOW", "DOOR", "GATE", "CLOCK", "WATCH", "KEY", "BAG", "BOX", "HAT", "COAT", "SHIRT", "PANTS", "SHOE", "SOCK", "RING", "TOOL", "WHEEL", "WIRE", "ROPE", "CHAIN", "GUN", "BALL", "CARD", "BOOK", "LIST", "MAP", "NOTE", "SIGN", "TASK", "PLAN", "GOAL", "RULE", "TEST", "STEP", "WAY", "ROAD", "TRIP", "TOUR", "VIEW", "SCENE", "EVENT", "WAR", "PEACE", "FIGHT", "HELP", "CARE", "HOPE", "LOVE", "FEAR", "ANGER", "JOY", "PAIN", "DEBT", "TAX", "PRICE", "COST", "SALE", "SHOP", "STORE", "BANK", "COIN", "BILL", "CASH", "CARD", "DEAL", "LOSS", "GAIN", "LUCK", "RISK", "SAFE", "FREE", "BEST", "NEXT", "LAST", "SAME"]
+            },
+            tr: {
+                status: "GÖREVİN:",
+                win: "DOĞRU! SIRADAKİ:",
+                guide: "MORS REHBERİ",
+                letters: "HARFLER",
+                numbers: "RAKAMLAR",
+                space: "BOŞLUK",
+                back: "SİL",
+                clear: "TEMİZLE",
+                words: ["ZAMAN", "INSAN", "DUNYA", "HAYAT", "COCUK", "KADIN", "ERKEK", "ANNE", "BABA", "AILE", "OKUL", "KITAP", "KALEM", "KAPI", "PENCERE", "MASA", "SANDALYE", "ODASI", "EVET", "HAYIR", "BELKI", "TAMAM", "SELAM", "NABER", "SABAH", "AKSAM", "GECE", "GUNDUZ", "BUGUN", "YARIN", "HAFTA", "AYLAR", "YILLAR", "SAAT", "DAKIKA", "SANIYE", "BIRAZ", "COKCA", "AZICIK", "IYICE", "KOTUYE", "GUZELCE", "YENICE", "ESKICE", "BUYUK", "KUCUK", "UZUN", "KISA", "GENIS", "DARAL", "SICAK", "SOGUK", "ILIKÇA", "TEMIZ", "KIRLI", "HIZLI", "YAVAS", "KOLAY", "ZORCA", "MUTLU", "UZGUN", "KORKU", "CESUR", "GUCLU", "ZAYIF", "GENC", "YASLI", "SAGLIK", "HASTA", "DOKTOR", "ILAC", "MUZIK", "RESIM", "OYUN", "SPOR", "YOLCU", "DURAK", "ARABA", "GEMI", "UCAK", "TREN", "PARA", "BANKA", "EKMEK", "YEMEK", "SUYU", "SUTU", "CAYI", "KAHVE", "MEYVE", "SEBZE", "ELMA", "ARMUT", "KIRAZ", "UZUMU", "CILEK", "LİMON", "BIBER", "DOMATES", "PATATES", "SOGAN", "MUTFAK", "BARDAK", "TABAK", "CATAL", "BICAK", "KASIK", "BAHCE", "ORMAN", "DENIZ", "NEHIR", "GOLU", "DAGLAR", "GUNES", "AYLAR", "YILDIZ", "HAVA", "ATES", "TOPRAK", "RUZGAR", "YAGMUR", "KARLA", "BULUT", "KEDILER", "KOPEL", "KUSLAR", "BALIK", "ASLAN", "KAPLAN", "TAVSAN", "ORDEK", "TAVUK", "HOROZ", "ADRES", "POSTA", "MESAJ", "BILGI", "FIKIR", "HAYAL", "RUYA", "GERCEK", "SEVGI", "SAYGI", "GUVEN", "BARIS", "SAVAS", "OZGUR", "ADALET", "HAKLI", "YASAL", "DEVLET", "MILLET", "ULKE", "SEHIR", "KOYU", "SOKAK", "CADDE", "ALANLAR", "BINA", "SARAY", "KOSEM", "ORTA", "KENAR", "ALTIN", "GUMUS", "DEMIR", "BAKIR", "KOMUR", "PETROL", "GAZLAR", "ISIK", "SESLER", "RENKLER", "BEYAZ", "SIYAH", "KIRMIZI", "MAVI", "YESIL", "SARI", "TURUNCU", "PEMBE", "MORCA", "GRIYE", "KARE", "DAIRE", "UCGEN", "NOKTA", "CIZGI", "YOLCU", "TASIT", "BILIM", "SANAT", "TARIH", "DILIM", "EDEBİYAT", "FELSEFE", "FIZIK", "KIMYA", "BIYOLOJI", "MATEMATIK", "SAYI", "RAKAM", "TOPLAM", "FARKI", "CARPI", "BOLUM", "KURAL", "TESTI", "ADIM", "HEDEF", "BASARI", "KAYIP", "KAZANC", "RISKI", "GUVEN", "KORKU", "NEFRET", "OFKE", "SABIR", "SAYGI", "DEGER", "ONEMLI", "GEREK", "LAZIM", "BELKI", "CUNKU", "ANCAK", "LAKIN", "VEYA", "YAHUT", "ASLA", "DAIMA", "SUREKLI", "BAZEN", "HENUZ", "SIMDI", "SONRA", "ONCE", "HAYAT", "OLUMU", "DOGUM", "GENCLIK", "ESARET", "RUHLAR", "BEDEN", "KALBI", "BEYIN", "AKILLI", "DUSUN", "ANLAM", "YAZMAK", "OKUMAK", "KONUS", "DINLE", "BAKMAK", "GÖRMEK", "DUYMAK", "TATMAK", "KOKLA", "DOKUN", "YURUMEK", "KOSMAK", "UYUMAK", "KALKMAK", "GITMEK", "GELMEK", "DURMAK", "BEKLE", "CALIS", "DINLEN", "EGLEN", "GULMEK", "AGLAMAK", "SEVMEK", "OZLE", "KORKMA", "YARDIM", "LUTFEN", "TESEKUR", "OZURDU", "SELAMLAR", "VEDA", "SANS", "KADER", "KISMET", "NASIP", "HUZUR", "KEYIF", "SOHBET", "DOST", "ARKADAS", "KOMSU", "MISAFIR", "HEDIYE", "BAYRAM", "TOREN", "DUGUN", "GEZI", "TATIL", "DENIZ", "KUMSAL", "GUNES", "YAYLA", "KOYUM", "SEHRİM", "VATAN", "BAYRAK", "ASGARI", "MEMUR", "ISCIYI", "ESNAF", "ZENGIN", "FAKIR", "BORCLU", "ALACAK", "ODEME", "SATIS", "ALIM", "FIYAT", "UCUZ", "PAHALI", "KALITE", "MARKA", "URUNU", "MODA", "TARZI", "GİYİM", "KUMAS", "DERI", "PAMUK", "YUNLU", "İPEK", "AYAKKABI", "CEKET", "GOMLEK", "PANTOLON", "ELBISE", "SAATLER", "GOZLUK", "CANTAN", "CICEK", "AGACI", "YAPRAK", "MEYVE", "TOHUM", "TARLA", "CIFCI", "HASAT", "EKMEK", "BUGDAY", "MISIR", "PIRINC", "SEKER", "TUZLU", "YAGLI", "BALLI", "SUTLU", "ETLER", "BALIK", "PEYNIR", "ZEYTIN", "YUMURTA", "YOĞURT", "CORBA", "PILAV", "KEBAP", "TATLI", "MEYVE", "SOGUK", "SICAK", "TAZE", "BAYAT", "LEZZET", "ISTAH", "TOKLUK", "ACLIK", "SUSUZ", "UYKULU", "YORGUN", "DINCI", "NESELI", "KEDER", "MERAK", "SUPHE", "INANC", "DUA", "AMIN", "HUHU", "SANS", "OYUN", "KUMAR", "BAHIS", "ODUL", "CEZA", "HAKIM", "SAVCI", "POLIS", "ASKER", "SILAH", "MERMI", "BICAK", "KAVGA", "BARIS", "DOSTU", "KOMSU", "AKRABA", "TEYZE", "HALA", "AMCA", "DAYI", "DEDE", "NINE", "TORUN", "YIGEN", "DOGAL", "YAPAY", "CANLI", "ORMAN", "DENIZ", "DERE", "GOLU", "DAGI", "OVA", "ADASI", "YAZLIK", "KISLIK", "BAHAR", "GUZEL", "CIRKIN", "YENI", "ESKI", "OZEL", "GENEL", "YEREL", "GLOBAL", "MODERN", "KLASIK", "HIZLI", "YAVAS", "KOLAY", "ZORU", "AGIR", "HAFIF", "TAMAM", "EKSİK", "BOSLUK", "DOLU", "ACIK", "KAPALI", "DARAL", "GENIS", "DERIN", "SIGCA", "PARLAK", "MATCA", "SERT", "YUMUSAK", "KABA", "NAZIK", "SESSİZ", "GURULTU", "RITIM", "MELODI", "SARKILAR", "SESSIZ", "ISIKLI", "RENKLI", "CANLI"]
+            }
+        };
+
+        let currentLang = 'en'; // Varsaayılan İngilizce
+
+        function toggleLanguage() {
+            currentLang = (currentLang === 'en') ? 'tr' : 'en';
+            updateUI();
+            setNextWord();
+        }
+
+        function updateUI() {
+            const l = data[currentLang];
+            document.getElementById('task-status').innerText = l.status;
+            document.getElementById('guide-title').innerText = l.guide;
+            document.getElementById('header-letters').innerText = l.letters;
+            document.getElementById('header-numbers').innerText = l.numbers;
+            document.getElementById('btn-space').innerText = l.space;
+            document.getElementById('btn-backspace').innerText = l.back;
+            document.getElementById('btn-clear').innerText = l.clear;
+        }
+
+        const morseCode = {};
+        function distribute(dataObj, leftColId, rightColId) {
+            const keys = Object.keys(dataObj).sort();
+            const mid = Math.ceil(keys.length / 2);
+            keys.forEach((key, i) => {
+                morseCode[dataObj[key]] = key;
+                const html = `<div class="guide-item"><strong>${key}</strong> <span>${dataObj[key]}</span></div>`;
+                document.getElementById(i < mid ? leftColId : rightColId).innerHTML += html;
+            });
+        }
+        distribute(letters, 'col-left', 'col-right');
+        distribute(numbers, 'num-left', 'num-right');
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let oscillator;
+        function startTone() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            oscillator = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            oscillator.connect(gain); gain.connect(audioCtx.destination);
+            oscillator.start();
+        }
+        function stopTone() { if (oscillator) { oscillator.stop(); oscillator.disconnect(); } }
+
+        let currentTarget = "";
+        function setNextWord() {
+            const words = data[currentLang].words;
+            let picked = words[Math.floor(Math.random() * words.length)];
+            currentTarget = picked.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/Ğ/g, "G").replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ç/g, "C");
+            document.getElementById('target-word').innerText = currentTarget;
+            document.getElementById('target-word').style.color = "#fff";
+            clearAll();
+        }
+
+        function checkWin() {
+            const userText = document.getElementById('result-text').innerText.replace(/\s/g, '').toUpperCase();
+            if (userText === currentTarget) {
+                document.getElementById('target-word').style.color = "#00ff00";
+                document.getElementById('task-status').innerText = data[currentLang].win;
+                setTimeout(() => {
+                    document.getElementById('task-status').innerText = data[currentLang].status;
+                    setNextWord();
+                }, 1000);
+            }
+        }
+
+        let startTime, timer, currentSequence = "";
+        const btn = document.getElementById('telegraph-btn');
+        const resText = document.getElementById('result-text');
+        const resCont = document.getElementById('result-container');
+
+        const handleDown = (e) => { e.preventDefault(); startTime = Date.now(); clearTimeout(timer); startTone(); };
+        const handleUp = (e) => {
+            e.preventDefault(); stopTone();
+            let dur = Date.now() - startTime;
+            currentSequence += (dur < 250) ? "." : "-";
+            document.getElementById('current-signal').innerText = currentSequence;
+            timer = setTimeout(decode, 650);
+        };
+
+        btn.onmousedown = handleDown; btn.onmouseup = handleUp;
+        btn.ontouchstart = handleDown; btn.ontouchend = handleUp;
+
+        function decode() {
+            if (currentSequence !== "") {
+                resText.innerHTML += morseCode[currentSequence] || "?";
+                currentSequence = "";
+                document.getElementById('current-signal').innerText = "";
+                resCont.scrollTop = resCont.scrollHeight;
+                checkWin();
+            }
+        }
+        function addSpace() { decode(); resText.innerHTML += "&nbsp;"; resCont.scrollTop = resCont.scrollHeight; }
+        function backspace() { 
+            let c = resText.innerHTML; 
+            resText.innerHTML = c.endsWith("&nbsp;") ? c.slice(0, -6) : c.slice(0, -1); 
+            checkWin();
+        }
+        function clearAll() { resText.innerHTML = ""; currentSequence = ""; document.getElementById('current-signal').innerText = ""; }
+
+        // İlk açılış
+        updateUI();
+        setNextWord();
+    </script>
+</body>
+</html>
